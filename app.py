@@ -7,7 +7,7 @@ app.py — Galaxy VOC Collector Router/RAG Edition
 3. CSV/XLSX/TXT/DOCX 업로드 → VOC 변환 + 경량 임베딩 청크 생성
 4. TF-IDF 기반 경량 RAG 검색/질의응답
 5. Hugging Face Router AI 분석
-6. SRS Markdown/DOCX/ZIP 산출
+6. SRS Markdown/DOCX/PPTX/ZIP 산출
 
 실행:
   streamlit run app.py
@@ -113,7 +113,7 @@ def parse_search_keywords(raw: str, max_keywords: int = 30) -> list[str]:
     return out
 
 
-def build_result_zip(docx_path: str | None, analysis_json: bytes, srs_markdown: bytes, rag_json: bytes) -> bytes:
+def build_result_zip(docx_path: str | None, pptx_path: str | None, analysis_json: bytes, srs_markdown: bytes, rag_json: bytes) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("analysis.json", analysis_json)
@@ -121,6 +121,8 @@ def build_result_zip(docx_path: str | None, analysis_json: bytes, srs_markdown: 
         zf.writestr("rag_context.json", rag_json)
         if docx_path and Path(docx_path).exists():
             zf.write(docx_path, arcname=Path(docx_path).name)
+        if pptx_path and Path(pptx_path).exists():
+            zf.write(pptx_path, arcname=Path(pptx_path).name)
     buf.seek(0)
     return buf.getvalue()
 
@@ -205,6 +207,7 @@ _defaults = {
     "max_tokens": cfg["max_tokens"],
     "temperature": cfg["temperature"],
     "last_docx_path": "",
+    "last_pptx_path": "",
     "custom_url_text": "",
     "search_keywords_text": "갤럭시\n갤럭시 배터리\n갤럭시 카메라\n갤럭시 발열",
     "max_search_keywords": 20,
@@ -450,22 +453,50 @@ with st.sidebar:
         st.success("SRS 생성 완료")
         st.rerun()
 
-    if st.button("📄 DOCX 생성", use_container_width=True, disabled=not st.session_state["voc_list"]):
-        from utils.doc_generator import generate_docx
+    c_doc, c_ppt = st.columns(2)
+    with c_doc:
+        if st.button("📄 DOCX 생성", use_container_width=True, disabled=not st.session_state["voc_list"]):
+            from utils.doc_generator import generate_docx
 
-        with st.spinner("DOCX 생성 중..."):
-            path = generate_docx(
-                st.session_state["voc_list"],
-                st.session_state["analysis"] or {},
-                st.session_state["srs_text"],
-                product_name=product_name,
-                version=doc_version,
-                author=doc_author,
-                output_dir=str(ROOT / "output"),
-                model_label=st.session_state.get("engine_model", "HF Router"),
-            )
-        st.session_state["last_docx_path"] = path
-        st.success(f"DOCX 생성 완료: {Path(path).name}")
+            with st.spinner("DOCX 생성 중..."):
+                path = generate_docx(
+                    st.session_state["voc_list"],
+                    st.session_state["analysis"] or {},
+                    st.session_state["srs_text"],
+                    product_name=product_name,
+                    version=doc_version,
+                    author=doc_author,
+                    output_dir=str(ROOT / "output"),
+                    model_label=st.session_state.get("engine_model", "HF Router"),
+                )
+            st.session_state["last_docx_path"] = path
+            st.success(f"DOCX 생성 완료: {Path(path).name}")
+    with c_ppt:
+        if st.button("📊 PPTX 생성", use_container_width=True, disabled=not st.session_state["voc_list"]):
+            from utils.ppt_generator import generate_pptx
+
+            rag_data_for_ppt = {
+                "query": st.session_state.get("rag_query", ""),
+                "hits": st.session_state.get("rag_hits", []),
+                "context": st.session_state.get("rag_context", ""),
+                "answer": st.session_state.get("rag_answer", ""),
+                "uploaded_chunks_count": len(st.session_state.get("uploaded_chunks", []) or []),
+            }
+            with st.spinner("PPTX 생성 중..."):
+                path = generate_pptx(
+                    st.session_state["voc_list"],
+                    st.session_state["analysis"] or {},
+                    st.session_state["srs_text"],
+                    stats=st.session_state.get("stats") or build_stats(st.session_state["voc_list"]),
+                    rag_data=rag_data_for_ppt,
+                    product_name=product_name,
+                    version=doc_version,
+                    author=doc_author,
+                    output_dir=str(ROOT / "output"),
+                    model_label=st.session_state.get("engine_model", "HF Router"),
+                )
+            st.session_state["last_pptx_path"] = path
+            st.success(f"PPTX 생성 완료: {Path(path).name}")
 
 st.markdown(
     f"""
@@ -673,15 +704,28 @@ with export_tab:
     st.download_button("⬇️ rag_context.json 다운로드", rag_bytes, file_name="rag_context.json", mime="application/json")
 
     docx_path = st.session_state.get("last_docx_path") or ""
-    if docx_path and Path(docx_path).exists():
-        st.download_button(
-            "⬇️ DOCX 다운로드",
-            Path(docx_path).read_bytes(),
-            file_name=Path(docx_path).name,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-    else:
-        st.caption("DOCX 생성 버튼을 먼저 누르면 DOCX 다운로드가 표시됩니다.")
+    pptx_path = st.session_state.get("last_pptx_path") or ""
+    c_down_doc, c_down_ppt = st.columns(2)
+    with c_down_doc:
+        if docx_path and Path(docx_path).exists():
+            st.download_button(
+                "⬇️ DOCX 다운로드",
+                Path(docx_path).read_bytes(),
+                file_name=Path(docx_path).name,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        else:
+            st.caption("DOCX 생성 버튼을 먼저 누르면 DOCX 다운로드가 표시됩니다.")
+    with c_down_ppt:
+        if pptx_path and Path(pptx_path).exists():
+            st.download_button(
+                "⬇️ PPTX 다운로드",
+                Path(pptx_path).read_bytes(),
+                file_name=Path(pptx_path).name,
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            )
+        else:
+            st.caption("PPTX 생성 버튼을 먼저 누르면 PPTX 다운로드가 표시됩니다.")
 
-    bundle = build_result_zip(docx_path if docx_path else None, json_bytes, st.session_state.get("srs_text", "").encode("utf-8"), rag_bytes)
+    bundle = build_result_zip(docx_path if docx_path else None, pptx_path if pptx_path else None, json_bytes, st.session_state.get("srs_text", "").encode("utf-8"), rag_bytes)
     st.download_button("⬇️ 결과 ZIP 다운로드", bundle, file_name=f"galaxy_voc_result_{time.strftime('%Y%m%d_%H%M%S')}.zip", mime="application/zip")
