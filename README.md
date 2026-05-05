@@ -156,3 +156,17 @@ CSV/XLSX는 다음 컬럼명을 자동 인식합니다.
 
 생성된 PPTX는 **내보내기** 탭에서 `PPTX 다운로드` 또는 `결과 ZIP 다운로드`로 받을 수 있습니다.
 Streamlit Cloud 배포 안정성을 위해 `python-pptx`, `lxml` 없이 표준 라이브러리 기반 OOXML 생성 방식으로 구현되어 있습니다.
+
+
+## PowerPoint 출력 관련 수정
+
+이 버전의 PPTX 생성기는 Microsoft PowerPoint 호환성을 위해 `python-pptx`를 사용합니다. 이전 pure-XML 방식은 LibreOffice에서는 열릴 수 있지만 Microsoft PowerPoint에서 “읽을 수 없습니다” 오류가 발생할 수 있어 제거했습니다.
+
+Streamlit Cloud 배포 시 `python-pptx`의 하위 의존성인 `lxml` 빌드를 지원하기 위해 루트의 `packages.txt`에 다음 Linux 패키지를 추가했습니다.
+
+```txt
+libxml2-dev
+libxslt1-dev
+```
+
+배포 설정에서는 Python 3.11 또는 3.12를 권장합니다.
