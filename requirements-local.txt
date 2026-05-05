@@ -1,0 +1,14 @@
+-r requirements.txt
+transformers>=4.53.0
+accelerate>=0.30.0
+safetensors>=0.4.3
+sentencepiece>=0.2.0
+timm>=1.0.0
+
+# torch는 환경별로 별도 설치 권장
+# CPU:
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+# CUDA 12.1:
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Windows에서 bitsandbytes는 문제가 잦으므로 필요할 때만 설치하세요.
+# bitsandbytes>=0.43.0
