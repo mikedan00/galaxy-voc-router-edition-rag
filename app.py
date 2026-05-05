@@ -402,7 +402,7 @@ with st.sidebar:
 
     st.divider()
     st.markdown("## 3) 분석/명세서")
-    product_target = st.text_input("분석 대상 제품", value="갤럭시 S25 시리즈")
+    product_target = st.text_input("분석 대상 제품", value="갤럭시 S26 시리즈")
     product_name = st.text_input("문서 제품명", value="삼성 갤럭시")
     doc_version = st.text_input("문서 버전", value="1.0")
     doc_author = st.text_input("작성자", value="제품기획팀")
